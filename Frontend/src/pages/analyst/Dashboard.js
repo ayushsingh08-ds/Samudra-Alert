@@ -2,12 +2,14 @@ import React, { useEffect, useCallback } from 'react';
 import { useReports } from '../../contexts/ReportsContext';
 import { useAlerts } from '../../contexts/AlertsContext';
 import DashboardLayout from '../../layouts/DashboardLayout';
+import MapContainer from '../../components/maps/MapContainer';
+import { ReportsOverTimeChart, ReportsByTypeChart, SeverityDistributionChart } from '../../components/charts/ChartContainer';
+import ReportCard from '../../components/common/ReportCard';
 import { 
   FileText, 
   CheckCircle, 
   Clock, 
   AlertTriangle,
-  MapPin,
   BarChart3
 } from 'lucide-react';
 
@@ -26,6 +28,26 @@ const AnalystDashboard = () => {
   const pendingReports = reports.filter(r => r.status === 'pending');
   const verifiedReports = reports.filter(r => r.verified);
   const recentReports = reports.slice(0, 5);
+
+  // Convert reports to map markers
+  const mapMarkers = reports.map(report => ({
+    lat: report.location.lat,
+    lng: report.location.lng,
+    title: report.title,
+    description: report.description,
+    type: report.type,
+    severity: report.severity,
+    reportedAt: report.reportedAt,
+    onClick: (marker) => {
+      console.log('Marker clicked:', marker);
+    }
+  }));
+
+  // Convert alerts to map alert areas
+  const mapAlerts = activeAlerts.map(alert => ({
+    ...alert,
+    coordinates: alert.coordinates || { lat: 19.0760, lng: 72.8777, radius: 25 }
+  }));
 
   const stats = [
     {
@@ -56,13 +78,6 @@ const AnalystDashboard = () => {
       color: 'bg-red-500',
       change: '-2%'
     }
-  ];
-
-  const reportTypes = [
-    { name: 'Flooding', count: reports.filter(r => r.type === 'flood').length, color: 'bg-blue-500' },
-    { name: 'Pollution', count: reports.filter(r => r.type === 'pollution').length, color: 'bg-green-500' },
-    { name: 'Storm', count: reports.filter(r => r.type === 'storm').length, color: 'bg-yellow-500' },
-    { name: 'Tsunami', count: reports.filter(r => r.type === 'tsunami').length, color: 'bg-red-500' }
   ];
 
   return (
@@ -105,65 +120,44 @@ const AnalystDashboard = () => {
           })}
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Recent Reports */}
-          <div className="lg:col-span-2 bg-white rounded-lg shadow">
-            <div className="p-6 border-b border-gray-200">
-              <div className="flex items-center justify-between">
-                <h2 className="text-lg font-semibold text-gray-900">Recent Reports</h2>
-                <button className="text-ocean-600 hover:text-ocean-700 text-sm font-medium">
-                  View all
-                </button>
-              </div>
-            </div>
-            <div className="p-6">
-              <div className="space-y-4">
-                {recentReports.map((report) => (
-                  <div key={report.id} className="flex items-center space-x-4 p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors cursor-pointer">
-                    <div className={`w-3 h-3 rounded-full ${
-                      report.severity === 'high' ? 'bg-red-500' :
-                      report.severity === 'medium' ? 'bg-yellow-500' : 'bg-green-500'
-                    }`}></div>
-                    <div className="flex-1">
-                      <h3 className="text-sm font-medium text-gray-900">{report.title}</h3>
-                      <p className="text-xs text-gray-500 flex items-center mt-1">
-                        <MapPin className="h-3 w-3 mr-1" />
-                        {report.location.address}
-                      </p>
-                    </div>
-                    <div className="text-right">
-                      <div className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${
-                        report.status === 'verified' ? 'bg-green-100 text-green-800' :
-                        report.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
-                        'bg-red-100 text-red-800'
-                      }`}>
-                        {report.status}
-                      </div>
-                      <p className="text-xs text-gray-500 mt-1">
-                        {new Date(report.reportedAt).toLocaleDateString()}
-                      </p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Map */}
+          <div className="bg-white rounded-lg shadow p-6">
+            <h2 className="text-lg font-semibold text-gray-900 mb-4">Reports Map</h2>
+            <MapContainer
+              center={[19.0760, 72.8777]}
+              zoom={10}
+              markers={mapMarkers}
+              alerts={mapAlerts}
+              height="400px"
+            />
           </div>
 
-          {/* Report Types */}
+          {/* Reports Over Time Chart */}
+          <div>
+            <ReportsOverTimeChart reports={reports} />
+          </div>
+        </div>
+
+        {/* Analytics Charts */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <ReportsByTypeChart reports={reports} />
+          <SeverityDistributionChart reports={reports} />
+          
+          {/* Recent Reports List */}
           <div className="bg-white rounded-lg shadow">
             <div className="p-6 border-b border-gray-200">
-              <h2 className="text-lg font-semibold text-gray-900">Report Types</h2>
+              <h2 className="text-lg font-semibold text-gray-900">Recent Reports</h2>
             </div>
-            <div className="p-6">
+            <div className="p-6 max-h-96 overflow-y-auto">
               <div className="space-y-4">
-                {reportTypes.map((type) => (
-                  <div key={type.name} className="flex items-center justify-between">
-                    <div className="flex items-center space-x-3">
-                      <div className={`w-3 h-3 rounded-full ${type.color}`}></div>
-                      <span className="text-sm font-medium text-gray-900">{type.name}</span>
-                    </div>
-                    <span className="text-sm text-gray-600">{type.count}</span>
-                  </div>
+                {recentReports.map((report) => (
+                  <ReportCard
+                    key={report.id}
+                    report={report}
+                    compact={true}
+                    onView={(report) => console.log('View report:', report)}
+                  />
                 ))}
               </div>
             </div>
