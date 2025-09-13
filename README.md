@@ -1,4 +1,4 @@
-# 🌊 Samudra Suraksha – Coastal Hazard Reporting Platform  
+# 🌊 Samudra Alert – Coastal Hazard Reporting Platform  
 
 ## 📌 Overview  
 Samudra Suraksha is an **integrated platform** for **citizen-powered ocean hazard reporting and social media analytics**, built for **Smart India Hackathon 2025**.  
