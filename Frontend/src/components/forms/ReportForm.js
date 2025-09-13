@@ -12,7 +12,6 @@ const ReportForm = ({ onSubmit, onCancel, initialData = null, isEditing = false 
     register,
     handleSubmit,
     formState: { errors, isSubmitting },
-    watch,
     setValue
   } = useForm({
     defaultValues: {

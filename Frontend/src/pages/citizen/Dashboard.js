@@ -1,4 +1,5 @@
 import React, { useEffect, useCallback } from 'react';
+import { Link } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { useReports } from '../../contexts/ReportsContext';
 import { useAlerts } from '../../contexts/AlertsContext';
@@ -94,10 +95,13 @@ const CitizenDashboard = () => {
             <div className="p-6 border-b border-gray-200">
               <div className="flex items-center justify-between">
                 <h2 className="text-lg font-semibold text-gray-900">Recent Reports</h2>
-                <button className="flex items-center space-x-2 text-ocean-600 hover:text-ocean-700 text-sm font-medium">
+                <Link
+                  to="/submit-report"
+                  className="flex items-center space-x-2 text-ocean-600 hover:text-ocean-700 text-sm font-medium"
+                >
                   <Plus className="h-4 w-4" />
                   <span>New Report</span>
-                </button>
+                </Link>
               </div>
             </div>
             <div className="p-6">
@@ -126,9 +130,12 @@ const CitizenDashboard = () => {
                 <div className="text-center py-8">
                   <FileText className="h-12 w-12 text-gray-300 mx-auto mb-4" />
                   <p className="text-gray-500">No reports yet</p>
-                  <button className="mt-2 text-ocean-600 hover:text-ocean-700 text-sm font-medium">
+                  <Link
+                    to="/submit-report"
+                    className="mt-2 text-ocean-600 hover:text-ocean-700 text-sm font-medium"
+                  >
                     Submit your first report
-                  </button>
+                  </Link>
                 </div>
               )}
             </div>
