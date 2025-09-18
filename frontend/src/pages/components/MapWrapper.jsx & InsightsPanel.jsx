@@ -1,6 +1,6 @@
 // src/pages/components/MapWrapper.jsx
 import React, { useState, useEffect, useMemo } from "react";
-import LoadingSkeleton from "./LoadingSkeleton";
+import LoadingSkeleton from "./LoadingSkeleton.jsx";
 
 const MapWrapper = React.memo(({ 
   points = [], 
@@ -38,7 +38,6 @@ const MapWrapper = React.memo(({
         if (!mounted) return;
         
         setMapLoadError(true);
-        // Set a fallback placeholder component
         setMapComponent(() => MapPlaceholder);
       }
     };
@@ -57,7 +56,6 @@ const MapWrapper = React.memo(({
     ...otherProps
   }), [points, mapApiUrl, mapWsUrl, zonesUrl, onPointSelect, mapLoadError, otherProps]);
 
-  // Server-side rendering fallback
   if (!isClient) {
     return (
       <div className="pd-glass-card">
@@ -69,7 +67,6 @@ const MapWrapper = React.memo(({
     );
   }
 
-  // Loading state
   if (loading && !MapComponent) {
     return (
       <div className="pd-glass-card">
@@ -80,7 +77,6 @@ const MapWrapper = React.memo(({
     );
   }
 
-  // Component not loaded yet
   if (!MapComponent) {
     return (
       <div className="pd-glass-card">
@@ -90,7 +86,6 @@ const MapWrapper = React.memo(({
     );
   }
 
-  // Render the actual map component
   return (
     <div className="pd-glass-card">
       <MapComponent {...mapProps} />
@@ -98,7 +93,6 @@ const MapWrapper = React.memo(({
   );
 });
 
-// Placeholder component when map fails to load
 const MapPlaceholder = React.memo(() => (
   <>
     <div className="pd-card-title">🗺️ Map Unavailable</div>
