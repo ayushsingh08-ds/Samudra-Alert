@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
-import { MapContainer, TileLayer, Marker, Popup, Circle, Rectangle } from 'react-leaflet';
-import L from 'leaflet';
+import { useState } from "react";
+import { MapContainer, TileLayer, Marker, Popup, Circle } from "react-leaflet";
+import L from "leaflet";
 import {
   Bell,
   Search,
@@ -8,7 +8,6 @@ import {
   LogOut,
   AlertTriangle,
   CheckCircle,
-  XCircle,
   Send,
   Settings,
   Users,
@@ -17,105 +16,154 @@ import {
   Eye,
   MapPin,
   Calendar,
-  Filter,
   Download,
   Clock,
-  Shield,
   Waves,
   AlertCircle,
   Trash2,
   Edit,
   Plus,
-  RefreshCw
-} from 'lucide-react';
-import './PageStyle/admin.css';
+  RefreshCw,
+} from "lucide-react";
+import "./PageStyle/admin.css";
+
+// Types
+interface Event {
+  id: string;
+  type: string;
+  location: string;
+  coordinates: number[];
+  severity: number;
+  reportsCount: number;
+  timestamp: string;
+  status: string;
+  description: string;
+  analystNotes: string;
+  citizenReports: number;
+  aiConfidence: number;
+}
+
+interface GeofenceArea {
+  center: [number, number];
+  radius: number;
+}
 
 // Fix for default markers in react-leaflet
+// @ts-ignore
 delete L.Icon.Default.prototype._getIconUrl;
 L.Icon.Default.mergeOptions({
-  iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png',
-  iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png',
-  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
+  iconRetinaUrl:
+    "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png",
+  iconUrl:
+    "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png",
+  shadowUrl:
+    "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png",
 });
 
+// Alert templates
+const alertTemplates = {
+  highTide:
+    "HIGH TIDE ALERT: Unusually high tide levels detected at {location}. Avoid coastal areas and move to higher ground if necessary.",
+  pollution:
+    "POLLUTION ALERT: Marine pollution detected at {location}. Avoid water contact and report any health concerns.",
+  erosion:
+    "COASTAL EROSION WARNING: Severe erosion reported at {location}. Evacuate coastal structures immediately.",
+};
+
 const AdminDashboard = () => {
-  const [activeTab, setActiveTab] = useState('dashboard');
-  const [notifications, setNotifications] = useState(12);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [selectedEvent, setSelectedEvent] = useState(null);
-  const [alertMode, setAlertMode] = useState(false);
-  const [geofenceArea, setGeofenceArea] = useState(null);
-  const [systemHealth, setSystemHealth] = useState({
-    apiStatus: 'healthy',
-    dbStatus: 'healthy',
-    aiModels: 'healthy',
-    dataIngestion: 142
-  });
+  const [activeTab, setActiveTab] = useState("dashboard");
+  const [notifications] = useState(12);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
+  const [geofenceArea] = useState<GeofenceArea | null>(null);
 
   // Mock data for verified events
-  const [verifiedEvents, setVerifiedEvents] = useState([
+  const [verifiedEvents] = useState([
     {
-      id: 'EVT001',
-      type: 'High Tide',
-      location: 'Marina Beach, Chennai',
+      id: "EVT001",
+      type: "High Tide",
+      location: "Marina Beach, Chennai",
       coordinates: [13.0475, 80.2824],
       severity: 8,
       reportsCount: 15,
-      timestamp: '2025-09-19T10:30:00Z',
-      status: 'pending',
-      description: 'Unusually high tide levels reported with potential flooding risk',
-      analystNotes: 'Verified through multiple sources. Weather data confirms unusual tidal patterns.',
+      timestamp: "2025-09-19T10:30:00Z",
+      status: "pending",
+      description:
+        "Unusually high tide levels reported with potential flooding risk",
+      analystNotes:
+        "Verified through multiple sources. Weather data confirms unusual tidal patterns.",
       citizenReports: 15,
-      aiConfidence: 92
+      aiConfidence: 92,
     },
     {
-      id: 'EVT002',
-      type: 'Debris/Pollution',
-      location: 'Juhu Beach, Mumbai',
-      coordinates: [19.0990, 72.8265],
+      id: "EVT002",
+      type: "Debris/Pollution",
+      location: "Juhu Beach, Mumbai",
+      coordinates: [19.099, 72.8265],
       severity: 6,
       reportsCount: 8,
-      timestamp: '2025-09-19T09:15:00Z',
-      status: 'escalated',
-      description: 'Large amount of plastic debris washed ashore',
-      analystNotes: 'Confirmed pollution event. Local authorities notified.',
+      timestamp: "2025-09-19T09:15:00Z",
+      status: "escalated",
+      description: "Large amount of plastic debris washed ashore",
+      analystNotes: "Confirmed pollution event. Local authorities notified.",
       citizenReports: 8,
-      aiConfidence: 87
+      aiConfidence: 87,
     },
     {
-      id: 'EVT003',
-      type: 'Coastal Erosion',
-      location: 'Puri Beach, Odisha',
+      id: "EVT003",
+      type: "Coastal Erosion",
+      location: "Puri Beach, Odisha",
       coordinates: [19.8135, 85.8312],
       severity: 9,
       reportsCount: 23,
-      timestamp: '2025-09-19T08:45:00Z',
-      status: 'critical',
-      description: 'Severe coastal erosion threatening nearby structures',
-      analystNotes: 'Critical situation. Immediate evacuation may be required.',
+      timestamp: "2025-09-19T08:45:00Z",
+      status: "critical",
+      description: "Severe coastal erosion threatening nearby structures",
+      analystNotes: "Critical situation. Immediate evacuation may be required.",
       citizenReports: 23,
-      aiConfidence: 95
-    }
+      aiConfidence: 95,
+    },
   ]);
 
-  const [users, setUsers] = useState([
-    { id: 1, name: 'Dr. Priya Sharma', role: 'analyst', email: 'priya@samudra.gov.in', status: 'active', lastActive: '2 hours ago' },
-    { id: 2, name: 'Raj Kumar', role: 'analyst', email: 'raj@samudra.gov.in', status: 'active', lastActive: '30 minutes ago' },
-    { id: 3, name: 'Admin User', role: 'admin', email: 'admin@samudra.gov.in', status: 'active', lastActive: 'now' }
+  const [users] = useState([
+    {
+      id: 1,
+      name: "Dr. Priya Sharma",
+      role: "analyst",
+      email: "priya@samudra.gov.in",
+      status: "active",
+      lastActive: "2 hours ago",
+    },
+    {
+      id: 2,
+      name: "Raj Kumar",
+      role: "analyst",
+      email: "raj@samudra.gov.in",
+      status: "active",
+      lastActive: "30 minutes ago",
+    },
+    {
+      id: 3,
+      name: "Admin User",
+      role: "admin",
+      email: "admin@samudra.gov.in",
+      status: "active",
+      lastActive: "now",
+    },
   ]);
 
-  const [analytics, setAnalytics] = useState({
+  const [analytics] = useState({
     totalReports: 1247,
     verifiedEvents: 89,
     alertsSent: 45,
-    avgResponseTime: '12 minutes',
+    avgResponseTime: "12 minutes",
     monthlyTrends: [
-      { month: 'May', reports: 89, alerts: 12 },
-      { month: 'Jun', reports: 156, alerts: 18 },
-      { month: 'Jul', reports: 203, alerts: 25 },
-      { month: 'Aug', reports: 298, alerts: 31 },
-      { month: 'Sep', reports: 501, alerts: 42 }
-    ]
+      { month: "May", reports: 89, alerts: 12 },
+      { month: "Jun", reports: 156, alerts: 18 },
+      { month: "Jul", reports: 203, alerts: 25 },
+      { month: "Aug", reports: 298, alerts: 31 },
+      { month: "Sep", reports: 501, alerts: 42 },
+    ],
   });
 
   // Header Component
@@ -140,7 +188,9 @@ const AdminDashboard = () => {
       <div className="header-right">
         <button className="notification-btn">
           <Bell />
-          {notifications > 0 && <span className="notification-count">{notifications}</span>}
+          {notifications > 0 && (
+            <span className="notification-count">{notifications}</span>
+          )}
         </button>
         <div className="user-menu">
           <User />
@@ -156,43 +206,43 @@ const AdminDashboard = () => {
     <nav className="sidebar">
       <div className="nav-items">
         <button
-          className={`nav-item ${activeTab === 'dashboard' ? 'active' : ''}`}
-          onClick={() => setActiveTab('dashboard')}
+          className={`nav-item ${activeTab === "dashboard" ? "active" : ""}`}
+          onClick={() => setActiveTab("dashboard")}
         >
           <Activity />
           <span>Dashboard</span>
         </button>
         <button
-          className={`nav-item ${activeTab === 'events' ? 'active' : ''}`}
-          onClick={() => setActiveTab('events')}
+          className={`nav-item ${activeTab === "events" ? "active" : ""}`}
+          onClick={() => setActiveTab("events")}
         >
           <AlertTriangle />
           <span>Verified Events</span>
         </button>
         <button
-          className={`nav-item ${activeTab === 'alerts' ? 'active' : ''}`}
-          onClick={() => setActiveTab('alerts')}
+          className={`nav-item ${activeTab === "alerts" ? "active" : ""}`}
+          onClick={() => setActiveTab("alerts")}
         >
           <Send />
           <span>Alert Composer</span>
         </button>
         <button
-          className={`nav-item ${activeTab === 'users' ? 'active' : ''}`}
-          onClick={() => setActiveTab('users')}
+          className={`nav-item ${activeTab === "users" ? "active" : ""}`}
+          onClick={() => setActiveTab("users")}
         >
           <Users />
           <span>User Management</span>
         </button>
         <button
-          className={`nav-item ${activeTab === 'analytics' ? 'active' : ''}`}
-          onClick={() => setActiveTab('analytics')}
+          className={`nav-item ${activeTab === "analytics" ? "active" : ""}`}
+          onClick={() => setActiveTab("analytics")}
         >
           <BarChart3 />
           <span>Analytics</span>
         </button>
         <button
-          className={`nav-item ${activeTab === 'settings' ? 'active' : ''}`}
-          onClick={() => setActiveTab('settings')}
+          className={`nav-item ${activeTab === "settings" ? "active" : ""}`}
+          onClick={() => setActiveTab("settings")}
         >
           <Settings />
           <span>Settings</span>
@@ -251,15 +301,30 @@ const AdminDashboard = () => {
         <div className="dashboard-section map-section">
           <h2>Real-time Coastal Monitoring</h2>
           <div className="map-container">
-            <MapContainer center={[20.5937, 78.9629]} zoom={5} style={{ height: '400px', width: '100%' }}>
+            <MapContainer
+              center={[20.5937, 78.9629]}
+              zoom={5}
+              style={{ height: "400px", width: "100%" }}
+            >
               <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
-              {verifiedEvents.map(event => (
-                <Marker key={event.id} position={event.coordinates}>
+              {verifiedEvents.map((event) => (
+                <Marker
+                  key={event.id}
+                  position={event.coordinates as [number, number]}
+                >
                   <Popup>
                     <div className="popup-content">
                       <h3>{event.type}</h3>
                       <p>{event.location}</p>
-                      <div className={`severity-badge severity-${event.severity >= 8 ? 'high' : event.severity >= 6 ? 'medium' : 'low'}`}>
+                      <div
+                        className={`severity-badge severity-${
+                          event.severity >= 8
+                            ? "high"
+                            : event.severity >= 6
+                            ? "medium"
+                            : "low"
+                        }`}
+                      >
                         Severity: {event.severity}/10
                       </div>
                     </div>
@@ -328,15 +393,25 @@ const AdminDashboard = () => {
       </div>
 
       <div className="events-list">
-        {verifiedEvents.map(event => (
+        {verifiedEvents.map((event) => (
           <div
             key={event.id}
-            className={`event-card ${event.status} ${selectedEvent?.id === event.id ? 'selected' : ''}`}
+            className={`event-card ${event.status} ${
+              selectedEvent?.id === event.id ? "selected" : ""
+            }`}
             onClick={() => setSelectedEvent(event)}
           >
             <div className="event-header">
               <div className="event-type">
-                <AlertTriangle className={`type-icon ${event.severity >= 8 ? 'critical' : event.severity >= 6 ? 'high' : 'medium'}`} />
+                <AlertTriangle
+                  className={`type-icon ${
+                    event.severity >= 8
+                      ? "critical"
+                      : event.severity >= 6
+                      ? "high"
+                      : "medium"
+                  }`}
+                />
                 <span className="type-text">{event.type}</span>
               </div>
               <div className="event-time">
@@ -353,7 +428,15 @@ const AdminDashboard = () => {
             <div className="event-metrics">
               <div className="metric">
                 <span className="metric-label">Severity</span>
-                <div className={`severity-score severity-${event.severity >= 8 ? 'high' : event.severity >= 6 ? 'medium' : 'low'}`}>
+                <div
+                  className={`severity-score severity-${
+                    event.severity >= 8
+                      ? "high"
+                      : event.severity >= 6
+                      ? "medium"
+                      : "low"
+                  }`}
+                >
                   {event.severity}/10
                 </div>
               </div>
@@ -367,16 +450,17 @@ const AdminDashboard = () => {
               </div>
             </div>
 
-            <div className="event-description">
-              {event.description}
-            </div>
+            <div className="event-description">{event.description}</div>
 
             <div className="event-actions">
-              <button className="action-btn primary" onClick={(e) => {
-                e.stopPropagation();
-                setSelectedEvent(event);
-                setActiveTab('alerts');
-              }}>
+              <button
+                className="action-btn primary"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setSelectedEvent(event);
+                  setActiveTab("alerts");
+                }}
+              >
                 <Send />
                 Create Alert
               </button>
@@ -394,19 +478,13 @@ const AdminDashboard = () => {
   // Alert Composer
   const AlertComposer = () => {
     const [alertData, setAlertData] = useState({
-      title: '',
-      message: '',
-      severity: 'medium',
-      channels: ['push'],
+      title: "",
+      message: "",
+      severity: "medium",
+      channels: ["push"],
       targetArea: null,
-      template: ''
+      template: "",
     });
-
-    const alertTemplates = {
-      highTide: 'HIGH TIDE ALERT: Unusually high tide levels detected at {location}. Avoid coastal areas and move to higher ground if necessary.',
-      pollution: 'POLLUTION ALERT: Marine pollution detected at {location}. Avoid water contact and report any health concerns.',
-      erosion: 'COASTAL EROSION WARNING: Severe erosion reported at {location}. Evacuate coastal structures immediately.'
-    };
 
     return (
       <div className="alerts-content">
@@ -414,7 +492,10 @@ const AdminDashboard = () => {
           <h2>Alert Composer & Broadcaster</h2>
           {selectedEvent && (
             <div className="selected-event-info">
-              <span>Creating alert for: <strong>{selectedEvent.type}</strong> at <strong>{selectedEvent.location}</strong></span>
+              <span>
+                Creating alert for: <strong>{selectedEvent.type}</strong> at{" "}
+                <strong>{selectedEvent.location}</strong>
+              </span>
             </div>
           )}
         </div>
@@ -422,12 +503,14 @@ const AdminDashboard = () => {
         <div className="alert-composer-grid">
           <div className="composer-section">
             <h3>Alert Details</h3>
-            
+
             <div className="form-group">
               <label>Alert Template</label>
-              <select 
+              <select
                 value={alertData.template}
-                onChange={(e) => setAlertData({...alertData, template: e.target.value})}
+                onChange={(e) =>
+                  setAlertData({ ...alertData, template: e.target.value })
+                }
               >
                 <option value="">Custom Message</option>
                 <option value="highTide">High Tide Warning</option>
@@ -441,7 +524,9 @@ const AdminDashboard = () => {
               <input
                 type="text"
                 value={alertData.title}
-                onChange={(e) => setAlertData({...alertData, title: e.target.value})}
+                onChange={(e) =>
+                  setAlertData({ ...alertData, title: e.target.value })
+                }
                 placeholder="Enter alert title..."
               />
             </div>
@@ -450,7 +535,9 @@ const AdminDashboard = () => {
               <label>Alert Message</label>
               <textarea
                 value={alertData.message}
-                onChange={(e) => setAlertData({...alertData, message: e.target.value})}
+                onChange={(e) =>
+                  setAlertData({ ...alertData, message: e.target.value })
+                }
                 placeholder="Enter alert message..."
                 rows={4}
               />
@@ -458,9 +545,11 @@ const AdminDashboard = () => {
 
             <div className="form-group">
               <label>Severity Level</label>
-              <select 
+              <select
                 value={alertData.severity}
-                onChange={(e) => setAlertData({...alertData, severity: e.target.value})}
+                onChange={(e) =>
+                  setAlertData({ ...alertData, severity: e.target.value })
+                }
               >
                 <option value="low">Low</option>
                 <option value="medium">Medium</option>
@@ -473,15 +562,24 @@ const AdminDashboard = () => {
               <label>Distribution Channels</label>
               <div className="checkbox-group">
                 <label className="checkbox-label">
-                  <input type="checkbox" checked={alertData.channels.includes('push')} />
+                  <input
+                    type="checkbox"
+                    checked={alertData.channels.includes("push")}
+                  />
                   Push Notifications
                 </label>
                 <label className="checkbox-label">
-                  <input type="checkbox" checked={alertData.channels.includes('sms')} />
+                  <input
+                    type="checkbox"
+                    checked={alertData.channels.includes("sms")}
+                  />
                   SMS Alerts
                 </label>
                 <label className="checkbox-label">
-                  <input type="checkbox" checked={alertData.channels.includes('social')} />
+                  <input
+                    type="checkbox"
+                    checked={alertData.channels.includes("social")}
+                  />
                   Social Media
                 </label>
               </div>
@@ -491,10 +589,20 @@ const AdminDashboard = () => {
           <div className="map-section">
             <h3>Target Area Selection</h3>
             <div className="geofence-map">
-              <MapContainer center={selectedEvent ? selectedEvent.coordinates : [20.5937, 78.9629]} zoom={8} style={{ height: '300px', width: '100%' }}>
+              <MapContainer
+                center={
+                  selectedEvent
+                    ? (selectedEvent.coordinates as [number, number])
+                    : [20.5937, 78.9629]
+                }
+                zoom={8}
+                style={{ height: "300px", width: "100%" }}
+              >
                 <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
                 {selectedEvent && (
-                  <Marker position={selectedEvent.coordinates}>
+                  <Marker
+                    position={selectedEvent.coordinates as [number, number]}
+                  >
                     <Popup>Event Location</Popup>
                   </Marker>
                 )}
@@ -545,12 +653,16 @@ const AdminDashboard = () => {
           <div className="log-entries">
             <div className="log-entry">
               <div className="log-time">2025-09-19 14:30</div>
-              <div className="log-content">High Tide Alert sent to Marina Beach area (2,450 recipients)</div>
+              <div className="log-content">
+                High Tide Alert sent to Marina Beach area (2,450 recipients)
+              </div>
               <div className="log-status success">Delivered</div>
             </div>
             <div className="log-entry">
               <div className="log-time">2025-09-19 12:15</div>
-              <div className="log-content">Pollution Alert sent to Juhu Beach area (1,200 recipients)</div>
+              <div className="log-content">
+                Pollution Alert sent to Juhu Beach area (1,200 recipients)
+              </div>
               <div className="log-status success">Delivered</div>
             </div>
           </div>
@@ -583,7 +695,7 @@ const AdminDashboard = () => {
             </tr>
           </thead>
           <tbody>
-            {users.map(user => (
+            {users.map((user) => (
               <tr key={user.id}>
                 <td>
                   <div className="user-info">
@@ -596,7 +708,9 @@ const AdminDashboard = () => {
                 </td>
                 <td>{user.email}</td>
                 <td>
-                  <span className={`status-badge ${user.status}`}>{user.status}</span>
+                  <span className={`status-badge ${user.status}`}>
+                    {user.status}
+                  </span>
                 </td>
                 <td>{user.lastActive}</td>
                 <td>
@@ -661,16 +775,16 @@ const AdminDashboard = () => {
         <div className="analytics-card">
           <h3>Monthly Trends</h3>
           <div className="trend-chart">
-            {analytics.monthlyTrends.map(trend => (
+            {analytics.monthlyTrends.map((trend) => (
               <div key={trend.month} className="trend-bar">
                 <div className="bar-label">{trend.month}</div>
                 <div className="bar-container">
-                  <div 
-                    className="bar reports" 
+                  <div
+                    className="bar reports"
                     style={{ height: `${(trend.reports / 500) * 100}%` }}
                   ></div>
-                  <div 
-                    className="bar alerts" 
+                  <div
+                    className="bar alerts"
                     style={{ height: `${(trend.alerts / 50) * 100}%` }}
                   ></div>
                 </div>
@@ -689,21 +803,21 @@ const AdminDashboard = () => {
             <div className="perf-item">
               <div className="perf-label">AI Model Accuracy</div>
               <div className="perf-bar">
-                <div className="perf-fill" style={{ width: '94%' }}></div>
+                <div className="perf-fill" style={{ width: "94%" }}></div>
               </div>
               <div className="perf-value">94%</div>
             </div>
             <div className="perf-item">
               <div className="perf-label">Alert Delivery Rate</div>
               <div className="perf-bar">
-                <div className="perf-fill" style={{ width: '98%' }}></div>
+                <div className="perf-fill" style={{ width: "98%" }}></div>
               </div>
               <div className="perf-value">98%</div>
             </div>
             <div className="perf-item">
               <div className="perf-label">System Uptime</div>
               <div className="perf-bar">
-                <div className="perf-fill" style={{ width: '99.8%' }}></div>
+                <div className="perf-fill" style={{ width: "99.8%" }}></div>
               </div>
               <div className="perf-value">99.8%</div>
             </div>
@@ -726,7 +840,11 @@ const AdminDashboard = () => {
           <div className="template-list">
             {Object.entries(alertTemplates).map(([key, template]) => (
               <div key={key} className="template-item">
-                <div className="template-name">{key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase())}</div>
+                <div className="template-name">
+                  {key
+                    .replace(/([A-Z])/g, " $1")
+                    .replace(/^./, (str) => str.toUpperCase())}
+                </div>
                 <div className="template-text">{template}</div>
                 <button className="edit-template-btn">
                   <Edit />
@@ -788,17 +906,17 @@ const AdminDashboard = () => {
   // Main render
   const renderContent = () => {
     switch (activeTab) {
-      case 'dashboard':
+      case "dashboard":
         return <DashboardOverview />;
-      case 'events':
+      case "events":
         return <VerifiedEventsQueue />;
-      case 'alerts':
+      case "alerts":
         return <AlertComposer />;
-      case 'users':
+      case "users":
         return <UserManagement />;
-      case 'analytics':
+      case "analytics":
         return <AnalyticsDashboard />;
-      case 'settings':
+      case "settings":
         return <SettingsPanel />;
       default:
         return <DashboardOverview />;
@@ -810,9 +928,7 @@ const AdminDashboard = () => {
       <Header />
       <div className="dashboard-body">
         <Sidebar />
-        <main className="main-content">
-          {renderContent()}
-        </main>
+        <main className="main-content">{renderContent()}</main>
       </div>
     </div>
   );
