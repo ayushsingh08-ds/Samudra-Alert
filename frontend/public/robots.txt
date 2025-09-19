@@ -1,0 +1,12 @@
+User-agent: *
+Allow: /
+
+# Disallow admin paths if any
+Disallow: /admin/
+Disallow: /api/
+
+# Sitemap
+Sitemap: https://samudra-alert.vercel.app/sitemap.xml
+
+# Crawl delay
+Crawl-delay: 1
