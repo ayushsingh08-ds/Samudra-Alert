@@ -3,8 +3,6 @@ import {
   AlertTriangle,
   Waves,
   MapPin,
-  Clock,
-  User,
   X,
   Bell,
   Compass,
@@ -13,10 +11,10 @@ import {
   Keyboard,
   StopCircle,
 } from "lucide-react";
-import CoastalMap from "../components/CoastalMap";
-import { useGeolocation } from "../hooks/useGeolocation";
-import "./PageStyle/SamudraAlertDashboard.css";
 
+import { useGeolocation } from "../hooks/useGeolocation";
+import CoastalMap from "../components/CoastalMap";
+import "./PageStyle/SamudraAlertDashboard.css";
 // TypeScript Interfaces
 interface Alert {
   id: string;
@@ -42,97 +40,6 @@ const SamudraAlertDashboard: React.FC = () => {
   const location = useGeolocation();
 
   // Extended coastal disaster alerts with real coordinates
-  const allCoastalAlerts = [
-    {
-      id: "1",
-      type: "danger" as const,
-      title: "High Tide Warning",
-      lat: 19.076,
-      lng: 72.8777,
-    },
-    {
-      id: "2",
-      type: "warning" as const,
-      title: "Strong Current Alert",
-      lat: 18.9388,
-      lng: 72.8354,
-    },
-    {
-      id: "3",
-      type: "information" as const,
-      title: "Weather Update",
-      lat: 19.1136,
-      lng: 72.9083,
-    },
-    {
-      id: "4",
-      type: "danger" as const,
-      title: "Cyclone Warning",
-      lat: 19.0176,
-      lng: 72.8562,
-    },
-    {
-      id: "5",
-      type: "warning" as const,
-      title: "Rough Sea Conditions",
-      lat: 18.922,
-      lng: 72.8347,
-    },
-    {
-      id: "6",
-      type: "information" as const,
-      title: "Marine Life Alert",
-      lat: 19.0896,
-      lng: 72.8656,
-    },
-    {
-      id: "7",
-      type: "danger" as const,
-      title: "Tsunami Watch",
-      lat: 18.9467,
-      lng: 72.8258,
-    },
-    {
-      id: "8",
-      type: "warning" as const,
-      title: "Oil Spill Detected",
-      lat: 19.0521,
-      lng: 72.8698,
-    },
-  ];
-
-  // Function to calculate distance between two coordinates
-  const calculateDistance = (
-    lat1: number,
-    lon1: number,
-    lat2: number,
-    lon2: number
-  ): number => {
-    const R = 6371; // Earth's radius in kilometers
-    const dLat = ((lat2 - lat1) * Math.PI) / 180;
-    const dLon = ((lon2 - lon1) * Math.PI) / 180;
-    const a =
-      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-      Math.cos((lat1 * Math.PI) / 180) *
-        Math.cos((lat2 * Math.PI) / 180) *
-        Math.sin(dLon / 2) *
-        Math.sin(dLon / 2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-    return R * c;
-  };
-
-  // Filter alerts within 50km radius when user location is available
-  const mapAlerts = location.hasLocation
-    ? allCoastalAlerts.filter((alert) => {
-        const distance = calculateDistance(
-          location.latitude!,
-          location.longitude!,
-          alert.lat,
-          alert.lng
-        );
-        return distance <= 50; // 50km radius
-      })
-    : allCoastalAlerts;
 
   // State
   const [showReportModal, setShowReportModal] = useState(false);
@@ -205,6 +112,15 @@ const SamudraAlertDashboard: React.FC = () => {
     },
   ]);
 
+  // Mock Data - Map Alerts (converted from officialAlerts for map display)
+  const mapAlerts = officialAlerts.map((alert, index) => ({
+    id: alert.id,
+    type: alert.type,
+    title: alert.title,
+    lat: 19.076 + (index - 1) * 0.01, // Spread around Mumbai coast
+    lng: 72.8777 + (index - 1) * 0.015,
+  }));
+
   // Mock Data - User Reports
   const [userReports] = useState<Report[]>([
     {
@@ -255,6 +171,117 @@ const SamudraAlertDashboard: React.FC = () => {
 
     const diffInDays = Math.floor(diffInHours / 24);
     return `${diffInDays}d ago`;
+  };
+
+  // Device detection function
+  const isMobileDevice = () => {
+    return (
+      /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(
+        navigator.userAgent
+      ) ||
+      (navigator.maxTouchPoints &&
+        navigator.maxTouchPoints > 2 &&
+        /MacIntel/.test(navigator.platform))
+    );
+  };
+
+  // Direct camera access for scan button
+  const handleScanButtonClick = async (e: React.MouseEvent) => {
+    e.preventDefault();
+
+    // Show loading state
+    setShowReportModal(true);
+    setReportMethod("camera");
+
+    try {
+      // Determine camera facing mode based on device
+      const facingMode = isMobileDevice() ? "environment" : "user";
+
+      console.log(
+        `🎥 Opening ${facingMode} camera for ${
+          isMobileDevice() ? "mobile" : "desktop"
+        } device`
+      );
+
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: {
+          facingMode: facingMode,
+          width: { ideal: 1920, min: 1280 },
+          height: { ideal: 1080, min: 720 },
+        },
+        audio: false,
+      });
+
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+        videoRef.current.classList.add("active");
+        videoRef.current.play(); // Ensure video starts playing
+      }
+
+      // Auto-populate location if available
+      if (location.hasLocation) {
+        const coordinates = `${location.latitude?.toFixed(
+          6
+        )}, ${location.longitude?.toFixed(6)}`;
+        setReportForm((prev) => ({
+          ...prev,
+          location: coordinates,
+        }));
+      }
+
+      console.log("✅ Camera started successfully");
+    } catch (error) {
+      console.error("❌ Error accessing camera:", error);
+
+      // Close modal on error
+      closeReportModal();
+
+      // Provide user-friendly error messages
+      let errorMessage = "Unable to access camera. ";
+      if (error instanceof DOMException) {
+        switch (error.name) {
+          case "NotAllowedError":
+            errorMessage +=
+              "Please allow camera access in your browser settings.";
+            break;
+          case "NotFoundError":
+            errorMessage += "No camera found on this device.";
+            break;
+          case "NotSupportedError":
+            errorMessage += "Camera not supported on this device.";
+            break;
+          case "OverconstrainedError":
+            errorMessage +=
+              "Camera constraints not supported. Trying with basic settings...";
+            // Try with simpler constraints
+            try {
+              const fallbackFacing = isMobileDevice() ? "environment" : "user";
+              const fallbackStream = await navigator.mediaDevices.getUserMedia({
+                video: { facingMode: fallbackFacing },
+                audio: false,
+              });
+
+              if (videoRef.current) {
+                videoRef.current.srcObject = fallbackStream;
+                videoRef.current.classList.add("active");
+                videoRef.current.play();
+              }
+
+              setShowReportModal(true);
+              setReportMethod("camera");
+              return; // Success with fallback
+            } catch (fallbackError) {
+              errorMessage += " Fallback also failed.";
+            }
+            break;
+          default:
+            errorMessage +=
+              "Please check your camera permissions and try again.";
+        }
+      }
+
+      alert(errorMessage);
+    }
   };
 
   // Media handling functions
@@ -342,6 +369,26 @@ const SamudraAlertDashboard: React.FC = () => {
       mediaRecorder.stop();
       setIsRecording(false);
     }
+  };
+
+  // Camera cleanup function
+  const stopCamera = () => {
+    if (videoRef.current?.srcObject) {
+      const stream = videoRef.current.srcObject as MediaStream;
+      stream.getTracks().forEach((track) => track.stop());
+      videoRef.current.srcObject = null;
+      videoRef.current.classList.remove("active");
+    }
+  };
+
+  // Enhanced modal close function
+  const closeReportModal = () => {
+    stopCamera(); // Stop camera when closing modal
+    setShowReportModal(false);
+    setReportMethod(null);
+    setCapturedPhoto(null);
+    setAudioUrl(null);
+    setAudioBlob(null);
   };
 
   const handleReportButtonClick = () => {
@@ -447,31 +494,13 @@ const SamudraAlertDashboard: React.FC = () => {
 
   return (
     <div className="dashboard-container">
-      {/* Header */}
+      {/* Mobile App-Style Header */}
       <header className="dashboard-header">
-        <div className="dashboard-title">
-          <Waves className="dashboard-title-icon" size={24} />
-          Samudra Alert
-        </div>
-
-        {/* Location Status Indicator */}
-        <div className="location-status">
-          {location.isLoading ? (
-            <div className="location-indicator loading">
-              <MapPin size={16} />
-              <span>Getting location...</span>
-            </div>
-          ) : location.hasLocation ? (
-            <div className="location-indicator active">
-              <MapPin size={16} />
-              <span>Location active</span>
-            </div>
-          ) : location.error ? (
-            <div className="location-indicator error">
-              <MapPin size={16} />
-              <span>Location unavailable</span>
-            </div>
-          ) : null}
+        <div className="header-left">
+          <div className="app-logo">
+            <Waves size={20} />
+          </div>
+          <h1 className="app-title">Samudra Alert</h1>
         </div>
 
         <div className="header-profile">
@@ -479,79 +508,129 @@ const SamudraAlertDashboard: React.FC = () => {
             <Bell size={20} />
             <span className="notification-badge">3</span>
           </button>
-          <div className="profile-avatar">
-            <User size={20} />
-          </div>
+          <div className="profile-avatar">SA</div>
         </div>
       </header>
 
-      {/* Main Content */}
-      <main className="dashboard-main">
-        {/* Left Sidebar */}
-        <div className="dashboard-sidebar">
-          {/* Report Button */}
-          <button className="report-button" onClick={handleReportButtonClick}>
-            <AlertTriangle size={20} />
-            Report a New Hazard
-          </button>
+      {/* Search Bar */}
+      <div className="search-container">
+        <div className="search-bar">
+          <input
+            type="text"
+            placeholder="Search marine incidents..."
+            className="search-input"
+          />
+          <Compass className="search-icon" size={20} />
+        </div>
+      </div>
 
-          {/* Official Alerts */}
-          <div className="alerts-section fade-in">
-            <h2 className="alerts-title">Official Alerts</h2>
-            {officialAlerts.map((alert) => (
-              <div key={alert.id} className={`alert-card ${alert.type}`}>
-                <div className={`alert-icon ${alert.type}`}>{alert.icon}</div>
-                <div className="alert-content">
-                  <h3>{alert.title}</h3>
-                  <p>{alert.description}</p>
-                  <div className="alert-time">
-                    <Clock size={12} />
-                    {formatTimestamp(alert.timestamp)}
-                  </div>
-                </div>
+      {/* Main Content - ReCall Style */}
+      <main className="main-content">
+        {/* Gradient Stats Card */}
+        <div className="stats-card">
+          <div className="stats-content">
+            <div className="stats-left">
+              <div className="stats-icon">👑</div>
+              <h3 className="stats-label">Alert Status</h3>
+              <div className="stats-count">Active</div>
+              <p className="stats-subtitle">
+                Total Reports: {userReports.length}
+              </p>
+            </div>
+            <div className="stats-right">
+              <div className="stats-level">
+                Level {Math.min(Math.floor(userReports.length / 5) + 1, 10)}
               </div>
-            ))}
-          </div>
-
-          {/* My Recent Reports */}
-          <div className="reports-section fade-in">
-            <h3 className="reports-title">
-              <Compass size={20} />
-              My Recent Reports
-            </h3>
-            {userReports.map((report) => (
-              <div key={report.id} className="report-item">
-                <div className="report-info">
-                  <h4>{report.type}</h4>
-                  <p>{report.description}</p>
-                </div>
-                <span className={`report-status ${report.status}`}>
-                  {report.status}
-                </span>
+              <p className="stats-level-label">(current)</p>
+              <div className="stats-progress">
+                <p className="stats-progress-label">Next Level</p>
+                <p className="stats-progress-value">
+                  {5 - (userReports.length % 5)} reports needed
+                </p>
               </div>
-            ))}
+            </div>
           </div>
         </div>
 
-        {/* Map Container */}
-        <div className="map-container fade-in">
-          <div className="map-header">
-            <h3 className="map-title">Coastal Alert Map</h3>
+        {/* Category Grid */}
+        <div className="category-grid">
+          <div className="category-card" onClick={handleReportButtonClick}>
+            <div className="category-icon reports">
+              <AlertTriangle size={24} />
+            </div>
+            <div className="category-content">
+              <h4 className="category-title">New Report</h4>
+              <p className="category-count">Report Hazard</p>
+            </div>
           </div>
-          <div className="map-area">
+
+          <div className="category-card">
+            <div className="category-icon alerts">
+              <Bell size={24} />
+            </div>
+            <div className="category-content">
+              <h4 className="category-title">Alerts</h4>
+              <p className="category-count">{officialAlerts.length} Active</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Interactive Map Section */}
+        <div className="map-section">
+          <div className="section-header">
+            <h2 className="section-title">Live Marine Alerts Map</h2>
+            <span className="section-subtitle">
+              Real-time incident locations
+            </span>
+          </div>
+          <div className="map-container">
             <CoastalMap
               alerts={mapAlerts}
               userLocation={
-                location.hasLocation
+                location.hasLocation && location.latitude && location.longitude
                   ? {
-                      latitude: location.latitude!,
-                      longitude: location.longitude!,
-                      accuracy: location.accuracy!,
+                      latitude: location.latitude,
+                      longitude: location.longitude,
+                      accuracy: location.accuracy || undefined,
                     }
                   : null
               }
             />
           </div>
+        </div>
+
+        {/* Recent Incidents */}
+        <div className="section-header">
+          <h2 className="section-title">Recent Marine Incidents</h2>
+          <a href="#" className="section-link">
+            All →
+          </a>
+        </div>
+
+        <div className="incidents-list">
+          {officialAlerts.slice(0, 3).map((alert) => (
+            <div key={alert.id} className="incident-item">
+              <div
+                className={`incident-icon ${
+                  alert.type === "danger"
+                    ? "oil-spill"
+                    : alert.type === "warning"
+                    ? "vessel-emergency"
+                    : "marine-pollution"
+                }`}
+              >
+                {alert.icon}
+              </div>
+              <div className="incident-content">
+                <h4 className="incident-title">{alert.title}</h4>
+                <div className="incident-meta">
+                  <span>{formatTimestamp(alert.timestamp)}</span>
+                  <span>Severity: {alert.severity}</span>
+                </div>
+              </div>
+              <div className="incident-arrow">›</div>
+            </div>
+          ))}
         </div>
       </main>
 
@@ -609,10 +688,7 @@ const SamudraAlertDashboard: React.FC = () => {
 
       {/* Report Modal */}
       {showReportModal && (
-        <div
-          className="modal-overlay"
-          onClick={() => setShowReportModal(false)}
-        >
+        <div className="modal-overlay" onClick={closeReportModal}>
           <div className="modal-content" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
               <h2 className="modal-title">
@@ -622,16 +698,7 @@ const SamudraAlertDashboard: React.FC = () => {
                   ? "Audio Report"
                   : "Text Report"}
               </h2>
-              <button
-                className="modal-close"
-                onClick={() => {
-                  setShowReportModal(false);
-                  setReportMethod(null);
-                  setCapturedPhoto(null);
-                  setAudioUrl(null);
-                  setAudioBlob(null);
-                }}
-              >
+              <button className="modal-close" onClick={closeReportModal}>
                 <X size={20} />
               </button>
             </div>
@@ -641,6 +708,26 @@ const SamudraAlertDashboard: React.FC = () => {
               <div className="camera-interface">
                 {!capturedPhoto ? (
                   <div className="camera-view">
+                    {/* Loading indicator when camera is initializing */}
+                    {!videoRef.current?.srcObject && (
+                      <div className="camera-loading">
+                        <div className="camera-loading-spinner"></div>
+                        <p>
+                          Starting {isMobileDevice() ? "rear" : "front"}{" "}
+                          camera...
+                        </p>
+                        <p
+                          style={{
+                            fontSize: "0.85rem",
+                            opacity: 0.7,
+                            marginTop: "0.5rem",
+                          }}
+                        >
+                          Please allow camera access when prompted
+                        </p>
+                      </div>
+                    )}
+
                     <video
                       ref={videoRef}
                       autoPlay
@@ -648,14 +735,18 @@ const SamudraAlertDashboard: React.FC = () => {
                       className="camera-video"
                     />
                     <canvas ref={canvasRef} style={{ display: "none" }} />
-                    <button
-                      type="button"
-                      className="capture-btn"
-                      onClick={capturePhoto}
-                    >
-                      <Camera size={24} />
-                      Capture Photo
-                    </button>
+
+                    {/* Only show capture button when video is active */}
+                    {videoRef.current?.srcObject && (
+                      <button
+                        type="button"
+                        className="capture-btn"
+                        onClick={capturePhoto}
+                      >
+                        <Camera size={24} />
+                        Capture Photo
+                      </button>
+                    )}
                   </div>
                 ) : (
                   <div className="photo-preview">
@@ -788,13 +879,7 @@ const SamudraAlertDashboard: React.FC = () => {
                 <button
                   type="button"
                   className="btn btn-secondary"
-                  onClick={() => {
-                    setShowReportModal(false);
-                    setReportMethod(null);
-                    setCapturedPhoto(null);
-                    setAudioUrl(null);
-                    setAudioBlob(null);
-                  }}
+                  onClick={closeReportModal}
                 >
                   Cancel
                 </button>
@@ -814,6 +899,14 @@ const SamudraAlertDashboard: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* Mobile Bottom Navigation */}
+      <nav className="bottom-nav">
+        <a href="#" className="nav-item scan" onClick={handleScanButtonClick}>
+          <div className="nav-icon">📷</div>
+          <span className="nav-label">Scan</span>
+        </a>
+      </nav>
     </div>
   );
 };
