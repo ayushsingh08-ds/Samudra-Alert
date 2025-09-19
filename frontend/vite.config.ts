@@ -17,7 +17,7 @@ export default defineConfig({
   build: {
     outDir: 'dist',
     sourcemap: false,
-    minify: 'terser',
+    minify: 'esbuild',
     target: 'es2015',
     rollupOptions: {
       output: {
@@ -36,7 +36,7 @@ export default defineConfig({
     host: true,
     proxy: {
       '/api': {
-        target: process.env.VITE_API_URL || 'http://localhost:5000',
+        target: 'http://localhost:5000',
         changeOrigin: true,
         secure: false
       }
@@ -45,10 +45,6 @@ export default defineConfig({
   preview: {
     port: 5174,
     host: true
-  },
-  define: {
-    'process.env.NODE_ENV': JSON.stringify(process.env.NODE_ENV || 'development'),
-    __DEV__: process.env.NODE_ENV !== 'production'
   },
   optimizeDeps: {
     include: ['react', 'react-dom', 'leaflet', 'react-leaflet', 'lucide-react']
