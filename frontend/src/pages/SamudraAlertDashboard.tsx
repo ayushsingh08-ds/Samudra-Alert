@@ -1,4 +1,4 @@
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import {
   AlertTriangle,
   Waves,
@@ -14,6 +14,8 @@ import {
 
 import { useGeolocation } from "../hooks/useGeolocation";
 import CoastalMap from "../components/CoastalMap";
+import { reportStore, generateReportId } from "../store/reportStore";
+import type { ReportData } from "../store/reportStore";
 import "./PageStyle/SamudraAlertDashboard.css";
 // TypeScript Interfaces
 interface Alert {
@@ -45,6 +47,7 @@ const SamudraAlertDashboard: React.FC = () => {
   const [showReportModal, setShowReportModal] = useState(false);
   const [showReportMethodSelection, setShowReportMethodSelection] =
     useState(false);
+  const [showAlertPopup, setShowAlertPopup] = useState(false);
   const [reportMethod, setReportMethod] = useState<
     "camera" | "audio" | "text" | null
   >(null);
@@ -78,8 +81,8 @@ const SamudraAlertDashboard: React.FC = () => {
     }
   }, [location.hasLocation, location.latitude, location.longitude]);
 
-  // Mock Data - Official Alerts
-  const [officialAlerts] = useState<Alert[]>([
+  // State for Official Alerts - includes both static and dynamic alerts
+  const [officialAlerts, setOfficialAlerts] = useState<Alert[]>([
     {
       id: "1",
       type: "warning",
@@ -111,6 +114,54 @@ const SamudraAlertDashboard: React.FC = () => {
       severity: "low",
     },
   ]);
+
+  // Listen for new alerts from the report store
+  useEffect(() => {
+    const loadAlerts = () => {
+      const storeAlerts = reportStore.getAlerts();
+      console.log("Citizen dashboard loading alerts:", storeAlerts);
+
+      // Convert store alerts to dashboard alerts format
+      const newAlerts = storeAlerts.map((alert) => ({
+        id: alert.id,
+        type: alert.type,
+        title: alert.title,
+        description: alert.message,
+        timestamp: alert.timestamp,
+        icon:
+          alert.severity === "high" || alert.severity === "critical" ? (
+            <AlertTriangle size={20} />
+          ) : (
+            <Bell size={20} />
+          ),
+        severity: alert.severity === "critical" ? "high" : alert.severity,
+      }));
+
+      console.log("Citizen dashboard converted alerts:", newAlerts);
+
+      // Update official alerts with new alerts from store
+      setOfficialAlerts((prev) => {
+        // Remove any existing store alerts and add the updated ones
+        const staticAlerts = prev.filter(
+          (alert) => !alert.id.startsWith("alert_")
+        );
+        const updatedAlerts = [...staticAlerts, ...newAlerts];
+        console.log("Citizen dashboard updated alerts:", updatedAlerts);
+        return updatedAlerts;
+      });
+    };
+
+    // Initial load
+    loadAlerts();
+
+    // Subscribe to updates
+    const unsubscribe = reportStore.subscribe(() => {
+      console.log("Citizen dashboard received store update");
+      loadAlerts();
+    });
+
+    return unsubscribe;
+  }, []);
 
   // Mock Data - Map Alerts (converted from officialAlerts for map display)
   const mapAlerts = officialAlerts.map((alert, index) => ({
@@ -449,26 +500,44 @@ const SamudraAlertDashboard: React.FC = () => {
       return;
     }
 
-    // Automatically include GPS coordinates if available
-    const reportWithLocation = {
-      ...reportForm,
-      location: location.hasLocation
-        ? {
-            latitude: location.latitude,
-            longitude: location.longitude,
-            accuracy: location.accuracy,
-            timestamp: location.timestamp,
-          }
-        : null,
-      reportMethod,
-      capturedMedia: {
-        photo: capturedPhoto,
-        audioBlob: null, // TODO: Add audio blob handling
+    // Create report data for the store
+    const newReport: ReportData = {
+      id: generateReportId(),
+      type: reportMethod === "camera" ? "photo" : reportMethod || "text",
+      hazardType: reportForm.type,
+      location: {
+        coordinates: location.hasLocation
+          ? `${location.latitude?.toFixed(6)}, ${location.longitude?.toFixed(
+              6
+            )}`
+          : "Location not available",
+        address: reportForm.location || "Address not provided",
+        lat: location.latitude || 0,
+        lng: location.longitude || 0,
       },
+      timestamp: new Date(),
+      citizen: {
+        name: "testuser",
+        credibilityScore: Math.floor(Math.random() * 50) + 50, // Random score between 50-100
+      },
+      media: capturedPhoto
+        ? {
+            url: capturedPhoto,
+            thumbnail: capturedPhoto,
+          }
+        : undefined,
+      description: reportForm.description,
+      status: "pending",
+      priority:
+        Math.random() > 0.7 ? "high" : Math.random() > 0.4 ? "medium" : "low",
+      aiAnalysis: reportStore.generateAIAnalysis(
+        reportForm.type,
+        reportForm.description
+      ),
     };
 
-    // Mock submission
-    console.log("Report submitted with location:", reportWithLocation);
+    // Add to report store (this will notify analyst dashboard)
+    reportStore.addReport(newReport);
 
     const locationText = location.hasLocation
       ? `\nLocation: ${location.latitude?.toFixed(
@@ -489,7 +558,10 @@ const SamudraAlertDashboard: React.FC = () => {
         ? `${location.latitude?.toFixed(6)}, ${location.longitude?.toFixed(6)}`
         : "",
     });
+    setCapturedPhoto(null);
+    setReportMethod(null);
     setShowReportModal(false);
+    setShowReportMethodSelection(false);
   };
 
   return (
@@ -504,9 +576,12 @@ const SamudraAlertDashboard: React.FC = () => {
         </div>
 
         <div className="header-profile">
-          <button className="notification-btn">
+          <button
+            className="notification-btn"
+            onClick={() => setShowAlertPopup(true)}
+          >
             <Bell size={20} />
-            <span className="notification-badge">3</span>
+            <span className="notification-badge">{officialAlerts.length}</span>
           </button>
           <div className="profile-avatar">SA</div>
         </div>
@@ -564,7 +639,11 @@ const SamudraAlertDashboard: React.FC = () => {
             </div>
           </div>
 
-          <div className="category-card">
+          <div
+            className="category-card"
+            onClick={() => setShowAlertPopup(true)}
+            style={{ cursor: "pointer" }}
+          >
             <div className="category-icon alerts">
               <Bell size={24} />
             </div>
@@ -896,6 +975,99 @@ const SamudraAlertDashboard: React.FC = () => {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Alert Popup Modal */}
+      {showAlertPopup && (
+        <div className="modal-overlay" onClick={() => setShowAlertPopup(false)}>
+          <div
+            className="alert-popup-modal"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="alert-popup-header">
+              <h3>🔔 Active Alerts</h3>
+              <button
+                className="close-btn"
+                onClick={() => setShowAlertPopup(false)}
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <div className="alert-popup-content">
+              {officialAlerts.length === 0 ? (
+                <div className="no-alerts">
+                  <p>📍 No active alerts at this time</p>
+                  <p>Stay safe and keep monitoring!</p>
+                </div>
+              ) : (
+                <div className="alerts-list">
+                  {officialAlerts.map((alert) => (
+                    <div key={alert.id} className={`alert-item ${alert.type}`}>
+                      <div className="alert-item-header">
+                        <div className="alert-icon">{alert.icon}</div>
+                        <div className="alert-meta">
+                          <h4 className="alert-title">{alert.title}</h4>
+                          <span className="alert-time">
+                            {formatTimestamp(alert.timestamp)}
+                          </span>
+                        </div>
+                        <div className={`severity-badge ${alert.severity}`}>
+                          {alert.severity.toUpperCase()}
+                        </div>
+                      </div>
+
+                      <div className="alert-description">
+                        {alert.description}
+                      </div>
+
+                      <div className="alert-actions">
+                        <button
+                          className="alert-action-btn acknowledge"
+                          onClick={() => {
+                            window.alert(
+                              `Alert "${alert.title}" acknowledged!`
+                            );
+                          }}
+                        >
+                          ✓ Acknowledge
+                        </button>
+                        <button
+                          className="alert-action-btn share"
+                          onClick={() => {
+                            if (navigator.share) {
+                              navigator.share({
+                                title: `🚨 ${alert.title}`,
+                                text: alert.description,
+                                url: window.location.href,
+                              });
+                            } else {
+                              navigator.clipboard.writeText(
+                                `🚨 ${alert.title}\n\n${alert.description}\n\nStay safe! - Samudra Alert`
+                              );
+                              window.alert("Alert copied to clipboard!");
+                            }
+                          }}
+                        >
+                          📤 Share
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="alert-popup-footer">
+              <button
+                className="close-popup-btn"
+                onClick={() => setShowAlertPopup(false)}
+              >
+                Close
+              </button>
+            </div>
           </div>
         </div>
       )}

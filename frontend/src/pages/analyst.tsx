@@ -19,6 +19,8 @@ import {
   Brain,
   Zap,
 } from "lucide-react";
+import { reportStore } from "../store/reportStore";
+import type { ReportData } from "../store/reportStore";
 import "./PageStyle/analyst.css";
 
 // TypeScript Interfaces
@@ -70,107 +72,61 @@ const AnalystDashboard: React.FC = () => {
   const [filterPriority, setFilterPriority] = useState<string>("all");
   const [searchTerm, setSearchTerm] = useState("");
 
-  // Mock Data - In production, this would come from an API
+  // Load and listen for reports from the store
   useEffect(() => {
-    const mockReports: Report[] = [
-      {
-        id: "1",
-        type: "photo",
-        hazardType: "High Waves",
-        location: {
-          coordinates: "19.0760, 72.8777",
-          address: "Marine Drive, Mumbai",
-        },
-        timestamp: new Date(Date.now() - 5 * 60 * 1000), // 5 minutes ago
-        citizen: {
-          name: "Rajesh Kumar",
-          credibilityScore: 8.5,
-        },
-        media: {
-          url: "/api/media/report1.jpg",
-          thumbnail: "/api/thumbnails/report1_thumb.jpg",
-        },
-        description: "Massive waves hitting the seawall, people evacuating",
-        status: "pending",
-        priority: "high",
-        aiAnalysis: {
-          severityScore: 8.2,
-          misinformationScore: 1.1,
-          sentimentScore: 7.8,
-          confidence: 0.92,
-        },
-        corroboration: {
-          socialMediaMentions: 23,
-          duplicateReports: 3,
-          officialSources: 1,
-        },
+    // Function to convert ReportData to Report format
+    const convertReportData = (reportData: ReportData): Report => ({
+      id: reportData.id,
+      type: reportData.type,
+      hazardType: reportData.hazardType,
+      location: {
+        coordinates: reportData.location.coordinates,
+        address: reportData.location.address,
       },
-      {
-        id: "2",
-        type: "video",
-        hazardType: "Oil Spill",
-        location: {
-          coordinates: "18.9388, 72.8354",
-          address: "Juhu Beach, Mumbai",
-        },
-        timestamp: new Date(Date.now() - 12 * 60 * 1000), // 12 minutes ago
-        citizen: {
-          name: "Priya Sharma",
-          credibilityScore: 9.2,
-        },
-        media: {
-          url: "/api/media/report2.mp4",
-          thumbnail: "/api/thumbnails/report2_thumb.jpg",
-        },
-        description: "Black substance washing ashore, strong smell",
-        status: "pending",
-        priority: "critical",
-        aiAnalysis: {
-          severityScore: 9.1,
-          misinformationScore: 0.8,
-          sentimentScore: 8.9,
-          confidence: 0.95,
-        },
-        corroboration: {
-          socialMediaMentions: 45,
-          duplicateReports: 7,
-          officialSources: 2,
-        },
+      timestamp: reportData.timestamp,
+      citizen: {
+        name: reportData.citizen.name,
+        credibilityScore: reportData.citizen.credibilityScore,
       },
-      {
-        id: "3",
-        type: "audio",
-        hazardType: "Strong Currents",
-        location: {
-          coordinates: "19.1136, 72.9083",
-          address: "Versova Beach, Mumbai",
-        },
-        timestamp: new Date(Date.now() - 20 * 60 * 1000), // 20 minutes ago
-        citizen: {
-          name: "Mohammed Ali",
-          credibilityScore: 7.8,
-        },
-        media: {
-          url: "/api/media/report3.mp3",
-        },
-        description: "Fishermen reporting dangerous currents, boats struggling",
-        status: "verified",
-        priority: "medium",
-        aiAnalysis: {
-          severityScore: 6.5,
-          misinformationScore: 2.1,
-          sentimentScore: 6.2,
-          confidence: 0.87,
-        },
-        corroboration: {
-          socialMediaMentions: 12,
-          duplicateReports: 2,
-          officialSources: 1,
-        },
+      media: reportData.media,
+      description: reportData.description,
+      status: reportData.status,
+      priority: reportData.priority,
+      aiAnalysis: {
+        severityScore: reportData.aiAnalysis.severityScore,
+        misinformationScore: reportData.aiAnalysis.misinformationScore,
+        sentimentScore: reportData.aiAnalysis.sentimentScore,
+        confidence: reportData.aiAnalysis.confidence / 100, // Convert to decimal
       },
-    ];
-    setReports(mockReports);
-    setSelectedReport(mockReports[0]);
+      corroboration: {
+        socialMediaMentions: Math.floor(Math.random() * 50) + 10,
+        duplicateReports: Math.floor(Math.random() * 10) + 1,
+        officialSources: Math.floor(Math.random() * 3) + 1,
+      },
+    });
+
+    // Load initial reports
+    const loadReports = () => {
+      const storeReports = reportStore.getReports();
+      const convertedReports = storeReports.map(convertReportData);
+      setReports(convertedReports);
+
+      // Select first pending report if available
+      const firstPending = convertedReports.find((r) => r.status === "pending");
+      if (firstPending) {
+        setSelectedReport(firstPending);
+      }
+    };
+
+    // Subscribe to store updates
+    const unsubscribe = reportStore.subscribe(() => {
+      loadReports();
+    });
+
+    // Initial load
+    loadReports();
+
+    return unsubscribe;
   }, []);
 
   // Filter and Search Logic
@@ -192,31 +148,41 @@ const AnalystDashboard: React.FC = () => {
 
   // Action Handlers
   const handleVerificationAction = (action: VerificationAction) => {
-    setReports((prev) =>
-      prev.map((report) => {
-        if (report.id === action.reportId) {
-          let newStatus: Report["status"];
-          switch (action.type) {
-            case "verify":
-              newStatus = "verified";
-              break;
-            case "reject":
-              newStatus = "rejected";
-              break;
-            case "escalate":
-              newStatus = "escalated";
-              break;
-            default:
-              newStatus = report.status;
-          }
-          return { ...report, status: newStatus };
-        }
-        return report;
-      })
-    );
+    const analystName = "Current Analyst"; // In production, this would come from auth
 
-    // Show success message
-    alert(`Report ${action.type}d successfully!`);
+    switch (action.type) {
+      case "verify":
+        reportStore.verifyReport(
+          action.reportId,
+          action.notes || "",
+          analystName
+        );
+        alert("Report verified successfully!");
+        break;
+      case "reject":
+        reportStore.rejectReport(
+          action.reportId,
+          action.notes || "",
+          analystName
+        );
+        alert("Report marked as false successfully!");
+        break;
+      case "escalate":
+        console.log("Analyst escalating report:", action.reportId);
+        reportStore.escalateReport(
+          action.reportId,
+          action.notes || "",
+          analystName
+        );
+        console.log(
+          "Escalated reports after escalation:",
+          reportStore.getReports("escalated")
+        );
+        alert("Report escalated to admin successfully!");
+        break;
+      default:
+        console.log("Unknown action type:", action.type);
+    }
   };
 
   const getStatusColor = (status: Report["status"]) => {

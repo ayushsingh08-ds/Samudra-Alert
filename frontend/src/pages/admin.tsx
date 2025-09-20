@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { MapContainer, TileLayer, Marker, Popup, Circle } from "react-leaflet";
 import L from "leaflet";
 import {
@@ -25,6 +25,12 @@ import {
   Plus,
   RefreshCw,
 } from "lucide-react";
+import {
+  reportStore,
+  generateAlertId,
+  testWorkflow,
+} from "../store/reportStore";
+import type { AlertData } from "../store/reportStore";
 import "./PageStyle/admin.css";
 
 // Types
@@ -78,7 +84,7 @@ const AdminDashboard = () => {
   const [geofenceArea] = useState<GeofenceArea | null>(null);
 
   // Mock data for verified events
-  const [verifiedEvents] = useState([
+  const [verifiedEvents, setVerifiedEvents] = useState([
     {
       id: "EVT001",
       type: "High Tide",
@@ -124,6 +130,67 @@ const AdminDashboard = () => {
       aiConfidence: 95,
     },
   ]);
+
+  // Listen for escalated and verified reports from the store
+  useEffect(() => {
+    const loadVerifiedAndEscalatedReports = () => {
+      const escalatedReports = reportStore.getReports("escalated");
+      const verifiedReports = reportStore.getReports("verified");
+      const allProcessedReports = [...escalatedReports, ...verifiedReports];
+      console.log("Admin loading escalated reports:", escalatedReports);
+      console.log("Admin loading verified reports:", verifiedReports);
+      console.log("Admin loading all processed reports:", allProcessedReports);
+
+      // Convert escalated and verified reports to verified events format
+      const newEvents = allProcessedReports.map((report) => ({
+        id: report.id,
+        type: report.hazardType,
+        location: report.location.address,
+        coordinates: [report.location.lat, report.location.lng],
+        severity: report.aiAnalysis.severityScore,
+        reportsCount: 1,
+        timestamp: report.timestamp.toISOString(),
+        status: report.status === "verified" ? "verified" : "pending", // Maintain verified status, escalated reports start as pending
+        description:
+          report.description ||
+          `${report.hazardType} reported by ${report.citizen.name}`,
+        analystNotes:
+          report.analystNotes ||
+          (report.status === "verified"
+            ? "Verified by analyst"
+            : "Escalated from analyst dashboard"),
+        citizenReports: 1,
+        aiConfidence: report.aiAnalysis.confidence,
+      }));
+
+      console.log(
+        "Admin converted events from escalated and verified reports:",
+        newEvents
+      );
+
+      // Update verified events with escalated and verified reports
+      setVerifiedEvents((prev) => {
+        // Remove existing events that came from store and add updated ones
+        const staticEvents = prev.filter(
+          (event) => !event.id.startsWith("report_")
+        );
+        const updatedEvents = [...staticEvents, ...newEvents];
+        console.log("Admin updated verified events:", updatedEvents);
+        return updatedEvents;
+      });
+    };
+
+    // Initial load
+    loadVerifiedAndEscalatedReports();
+
+    // Subscribe to updates
+    const unsubscribe = reportStore.subscribe(() => {
+      console.log("Admin received store update");
+      loadVerifiedAndEscalatedReports();
+    });
+
+    return unsubscribe;
+  }, []);
 
   const [users] = useState([
     {
@@ -186,6 +253,22 @@ const AdminDashboard = () => {
         </div>
       </div>
       <div className="header-right">
+        <button
+          className="test-workflow-btn"
+          onClick={testWorkflow}
+          style={{
+            marginRight: "10px",
+            padding: "8px 12px",
+            backgroundColor: "#10b981",
+            color: "white",
+            border: "none",
+            borderRadius: "6px",
+            cursor: "pointer",
+            fontSize: "12px",
+          }}
+        >
+          🧪 Test Workflow
+        </button>
         <button className="notification-btn">
           <Bell />
           {notifications > 0 && (
@@ -369,6 +452,18 @@ const AdminDashboard = () => {
     <div className="events-content">
       <div className="events-header">
         <h2>Verified Events Queue</h2>
+        <div
+          className="system-status"
+          style={{
+            fontSize: "12px",
+            color: "#666",
+            marginBottom: "10px",
+          }}
+        >
+          📊 System Status: {verifiedEvents.length} events (
+          {verifiedEvents.filter((e) => e.id.startsWith("report_")).length} from
+          analysts)
+        </div>
         <div className="events-controls">
           <div className="filter-controls">
             <select className="filter-select">
@@ -423,6 +518,11 @@ const AdminDashboard = () => {
             <div className="event-location">
               <MapPin />
               {event.location}
+              {event.id.startsWith("report_") && (
+                <span className="escalated-badge">
+                  📈 Escalated from Analyst
+                </span>
+              )}
             </div>
 
             <div className="event-metrics">
@@ -485,6 +585,61 @@ const AdminDashboard = () => {
       targetArea: null,
       template: "",
     });
+
+    const handleSendAlert = () => {
+      if (!alertData.title || !alertData.message) {
+        alert("Please fill in both title and message fields");
+        return;
+      }
+
+      // Create alert data for the store
+      const newAlert: AlertData = {
+        id: generateAlertId(),
+        title: alertData.title,
+        message: alertData.message,
+        type:
+          alertData.severity === "critical"
+            ? "danger"
+            : alertData.severity === "high"
+            ? "warning"
+            : "information",
+        severity: alertData.severity as "low" | "medium" | "high" | "critical",
+        location: selectedEvent
+          ? {
+              coordinates: `${selectedEvent.coordinates[0]}, ${selectedEvent.coordinates[1]}`,
+              address: selectedEvent.location,
+              lat: selectedEvent.coordinates[0],
+              lng: selectedEvent.coordinates[1],
+            }
+          : {
+              coordinates: "0, 0",
+              address: "General Alert",
+              lat: 0,
+              lng: 0,
+            },
+        timestamp: new Date(),
+        targetAudience: ["citizens"],
+        channels: alertData.channels,
+        status: "sent",
+      };
+
+      // Add alert to store (this will notify citizen dashboard)
+      console.log("Admin sending alert:", newAlert);
+      reportStore.addAlert(newAlert);
+      console.log("All alerts after adding:", reportStore.getAlerts());
+
+      alert("Alert sent successfully to all citizens!");
+
+      // Reset form
+      setAlertData({
+        title: "",
+        message: "",
+        severity: "medium",
+        channels: ["push"],
+        targetArea: null,
+        template: "",
+      });
+    };
 
     return (
       <div className="alerts-content">
@@ -638,7 +793,7 @@ const AdminDashboard = () => {
             <Eye />
             Preview Alert
           </button>
-          <button className="send-btn primary">
+          <button className="send-btn primary" onClick={handleSendAlert}>
             <Send />
             Send Alert Now
           </button>
