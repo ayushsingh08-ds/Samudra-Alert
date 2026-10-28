@@ -1,217 +1,150 @@
-# 🌊 Samudra Alert - Coastal Hazard Early Warning System
+# 🛡️ Samudra-Alert — Real-Time Hazard Platform
 
-A comprehensive early warning system for coastal hazards in India, leveraging crowdsourced data, AI verification, and real-time alert dissemination to protect coastal communities.
+Production-grade, community-driven incident reporting and alerting for India. **One React codebase → web + native Android.** Offline-first, real-time, with image evidence, push alerts, and a full moderation workflow.
 
-## 🎯 Project Overview
+![stack](https://img.shields.io/badge/React_19-Vite_7-38BDF8) ![api](https://img.shields.io/badge/Express-Mongoose-0EA5E9) ![mobile](https://img.shields.io/badge/Capacitor-Android-14C38E)
 
-Samudra Alert is a multi-role dashboard system designed to monitor, verify, and respond to coastal hazards such as high tides, marine pollution, and coastal erosion. The system combines citizen reporting, analyst verification, and administrative alert broadcasting into a unified platform.
-
-## ✨ Features
-
-### 🏠 Citizen Dashboard
-
-- **Real-time Reporting**: Submit geo-tagged photos, videos, and voice notes of coastal hazards
-- **Interactive Coastal Map**: View current hazard conditions and active alerts
-- **Emergency Alerts**: Receive push notifications and SMS alerts for nearby hazards
-- **Community Gallery**: Browse verified hazard reports from other citizens
-
-### 🔍 Analyst Dashboard
-
-- **Verification Hub**: Process and verify incoming citizen reports
-- **AI-Powered Insights**: Automated hazard severity scoring and misinformation detection
-- **Data Corroboration**: Cross-reference reports with social media and other sources
-- **Report Management**: Verify, reject, or escalate reports to administrators
-
-### ⚡ Admin Dashboard
-
-- **Command Center**: High-level overview of verified hazard events
-- **Alert Composer**: Create and broadcast official alerts with geofencing
-- **User Management**: Manage analyst and citizen user accounts
-- **System Analytics**: Performance metrics and operational insights
-- **Configuration**: Manage alert templates, API keys, and system settings
-
-## 🛠️ Technology Stack
-
-### Frontend
-
-- **React.js** with TypeScript
-- **Leaflet.js** for interactive maps
-- **Tailwind CSS** for styling
-- **Vite** for build tooling
-- **Lucide React** for icons
-
-### Planned Backend (Not implemented yet)
-
-- **Node.js** with Express
-- **PostgreSQL** with PostGIS for spatial data
-- **Firebase** for push notifications
-- **AI/ML** models for content verification
-- **SMS Gateway** integration
-
-### External APIs
-
-- **INCOIS** (Indian National Centre for Ocean Information Services)
-- **Weather APIs** for meteorological data
-- **Social Media APIs** for corroboration
-
-## 🚀 Getting Started
-
-### Prerequisites
-
-- Node.js (v16 or higher)
-- npm or yarn
-- Git
-
-### Installation
-
-1. **Clone the repository**
-
-   ```bash
-   git clone https://github.com/your-username/samudra-alert.git
-   cd samudra-alert
-   ```
-
-2. **Install dependencies**
-
-   ```bash
-   cd frontend
-   npm install
-   ```
-
-3. **Start the development server**
-
-   ```bash
-   npm run dev
-   ```
-
-4. **Open your browser**
-   Navigate to `http://localhost:5173` (or the port shown in your terminal)
-
-### Usage
-
-1. **Citizen Dashboard**: Report coastal hazards and view community reports
-2. **Analyst Dashboard**: Verify and process incoming reports
-3. **Admin Dashboard**: Manage system operations and broadcast alerts
-
-Use the navigation bar to switch between different dashboards.
-
-## 📁 Project Structure
+## Architecture
 
 ```
-samudra-alert/
-├── frontend/
-│   ├── src/
-│   │   ├── components/          # Reusable UI components
-│   │   │   ├── CameraView.tsx
-│   │   │   ├── CoastalMap.tsx
-│   │   │   ├── Gallery.tsx
-│   │   │   └── PostPreview.tsx
-│   │   ├── pages/               # Main dashboard pages
-│   │   │   ├── admin.tsx        # Admin dashboard
-│   │   │   ├── analyst.tsx      # Analyst dashboard
-│   │   │   ├── user.tsx         # Citizen dashboard
-│   │   │   ├── SamudraAlertDashboard.tsx
-│   │   │   └── PageStyle/       # Page-specific styles
-│   │   ├── hooks/               # Custom React hooks
-│   │   │   ├── useAudioRecorder.ts
-│   │   │   ├── useCamera.ts
-│   │   │   └── useGeolocation.ts
-│   │   ├── types/               # TypeScript type definitions
-│   │   └── App.tsx              # Main application component
-│   ├── public/
-│   └── package.json
-└── README.md
+┌────────────────────────────────────────────────────────────┐
+│                    client/ (React 19 + Vite)                │
+│   Web (Vercel/nginx)  ·  Android (Capacitor WebView)        │
+│   Zustand · React Query · Socket.IO client · Leaflet        │
+│   Offline: IndexedDB queue + auto-sync · FCM push           │
+└──────────────────────┬─────────────────────────────────────┘
+                       │ REST + WebSocket
+┌──────────────────────▼─────────────────────────────────────┐
+│                 server/ (Express + TS)                      │
+│  Auth (JWT access/refresh, rotation+revocation)             │
+│  Reports (geo 2dsphere, status workflow, audit trail)       │
+│  Alerts (broadcast → Socket.IO rooms + FCM fan-out)         │
+│  Uploads (R2 presigned PUT) · Devices (push tokens)         │
+└───────┬──────────────────┬───────────────────┬──────────────┘
+        │                  │                   │
+   MongoDB 7        Cloudflare R2        Firebase FCM
+   (reports,         (hazard photos)      (push delivery)
+    users,
+    alerts,
+    devices)
+        ▲
+        │
+┌───────┴────────────────────────────────────────────────────┐
+│        shared/ (@samudra/shared — Zod + types)              │
+│  One source of truth for validation + entity contracts      │
+└─────────────────────────────────────────────────────────────┘
 ```
 
-## 🎨 Dashboard Features
+## Monorepo layout
 
-### Admin Dashboard Components
+| Path | What |
+|---|---|
+| `client/` | React 19, Vite 7, Tailwind 4, mobile-first shell; Capacitor Android in `client/android` |
+| `server/` | Express API, Socket.IO, Jest tests, seed script |
+| `shared/` | `@samudra/shared`: Zod schemas, all-India region boxes, API types |
+| `docker-compose.yml` | mongo + server + web (nginx) |
 
-#### 📊 Overview Dashboard
+## Quick start
 
-- Real-time statistics and system health monitoring
-- Interactive map showing verified events
-- Key performance indicators
+```bash
+npm ci                      # installs all workspaces from the root lockfile
+npm run build -w shared     # shared contracts -> dist
 
-#### 🚨 Verified Events Queue
+# Terminal 1
+cp server/.env.example server/.env   # fill secrets
+npm run dev:server
 
-- Prioritized list of analyst-verified hazard events
-- Event details with severity scoring and citizen report counts
-- Quick action buttons for alert creation
+# Terminal 2
+cp client/.env.example client/.env
+npm run dev:client          # http://localhost:5174
 
-#### 📢 Alert Composer & Broadcaster
+# Demo data (users + 24 national incident reports + alerts)
+npm run seed
+```
 
-- Geofenced alert targeting with interactive map
-- Multi-channel alert distribution (Push, SMS, Social Media)
-- Pre-defined alert templates for different hazard types
-- Alert delivery tracking and history
+**Demo accounts** (after seeding, password `Password123!`):
 
-#### 👥 User Management
+| Email | Role |
+|---|---|
+| admin@samudra-alert.in | admin — sees Alert Composer |
+| moderator@samudra-alert.in | moderator — Verification Queue |
+| citizen@samudra-alert.in | citizen — report + feed |
 
-- Add, edit, and manage analyst and citizen accounts
-- Role-based access control
-- User activity monitoring
+## Feature modules
 
-#### 📈 Analytics & Reporting
+**Citizen** — live feed (socket-updated), hazard map w/ bottom-sheet details, 5-step report wizard (category → severity → GPS/map location → camera photos → review), offline queue w/ photo support, notification center.
 
-- System performance metrics
-- Event response statistics
-- Monthly trend analysis
-- Exportable reports
+**Moderator** — verification queue with real stats (today count, 7-day trend, avg verification time), verify/reject with reason, live updates as reports arrive.
 
-#### ⚙️ System Configuration
+**Admin** — alert composer: template picker, severity, tap-to-place target zone with radius slider, optional push fan-out, delivery stats. Broadcast hits every connected client instantly (Socket.IO) and registered devices (FCM).
 
-- Alert template management
-- API key configuration
-- AI model threshold settings
-- System health monitoring
+**Platform** — JWT rotation + revocation, rate limiting, helmet, zod validation on every input, in-memory refresh denylist (swap for Redis at scale), audit history on every report.
 
-## 🤝 Contributing
+## API overview
 
-We welcome contributions! Please see our contributing guidelines for details.
+| Method | Path | Auth | Purpose |
+|---|---|---|---|
+| POST | `/api/auth/register` · `/login` · `/refresh` · `/logout` | – / cookie | Session lifecycle |
+| GET | `/api/users/me` | ✅ | Current user |
+| GET | `/api/reports` | – | Filter + paginate (status, category, severity, region) |
+| GET | `/api/reports/nearby?lat&lng&radiusKm` | – | `$geoNear` radius search |
+| GET | `/api/reports/:id` | – | Full report + timeline |
+| POST | `/api/reports` | ✅ | Create (title, desc, category, severity, lat/lng, images[]) |
+| PATCH | `/api/reports/:id/status` | mod/admin | Verify/reject/resolve — emits socket + high-sev push |
+| GET | `/api/alerts` | – | Broadcast history |
+| POST | `/api/alerts` | admin | Broadcast → sockets + FCM |
+| POST/DELETE | `/api/devices[/:token]` | ✅ | Register/remove push token |
+| POST | `/api/uploads/presign` · `/confirm` | ✅ | R2 direct upload flow |
+| GET | `/api/admin/reports/pending` | mod/admin | Verification queue |
+| GET | `/api/admin/stats` | mod/admin | Status counts, today, trend, avg verify time |
 
-### Development Setup
+**Socket.IO events** (server → client): `report:created`, `report:updated`, `alert:broadcast`. Rooms: `global` + `region:<state>`.
 
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add some amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
+## Mobile app (Android)
 
-## 📋 TODO / Roadmap
+```bash
+npm run mobile:sync      # build web + sync to native shell
+npm run mobile:android   # open Android Studio
+```
 
-- [ ] Backend API development
-- [ ] Database schema implementation
-- [ ] AI/ML model integration
-- [ ] Push notification system
-- [ ] SMS gateway integration
-- [ ] Social media API integration
-- [ ] Mobile app development
-- [ ] Real-time WebSocket connections
-- [ ] Advanced analytics dashboard
-- [ ] Multi-language support
+Native: GPS, camera, FCM push, haptics, splash. Full release/signing/Play Store guide in **[client/README-MOBILE.md](client/README-MOBILE.md)**.
 
-## 🐛 Known Issues
+## Deployment
 
-- TypeScript compilation warnings for unused imports
-- Backend integration pending
-- Real data connections not yet implemented
+| Piece | Where | Notes |
+|---|---|---|
+| API | Render / Railway / Fly | Set env from `server/.env.example`; `npm start` runs `node dist/index.js` |
+| Web | Vercel / Netlify | Root `client/`, build `npm run build -w client`, output `client/dist` |
+| Database | MongoDB Atlas free tier | |
+| Images | Cloudflare R2 bucket + public r2.dev domain | |
+| Push | Firebase console | Service-account JSON → base64 → server env |
 
-## 📄 License
+`docker compose up --build` runs the whole stack locally (web on :8080, API on :5000).
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+## Testing
 
-## 🙏 Acknowledgments
+The API tests use MongoDB at `mongodb://localhost:27017/samudra-alert-test`. The Playwright end-to-end suite starts the API and Vite client locally and uses the separate `samudra-alert-e2e` database; MongoDB must be available on port 27017. In CI, MongoDB is provided as a service.
 
-- **INCOIS** for oceanographic data
-- **OpenStreetMap** for map tiles
-- **Leaflet.js** community for mapping solutions
-- **React.js** team for the excellent framework
+```bash
+npm test
+npx playwright install chromium  # one-time browser install
+npm run test:e2e
+```
 
-## 📞 Contact
+## Scripts
 
-For questions or support, please open an issue in this repository.
+| Command | Scope |
+|---|---|
+| `npm run dev` | server + client concurrently |
+| `npm test` | server Jest suite |
+| `npm run test:e2e` | Playwright browser end-to-end suite (starts local test services) |
+| `npm run seed` | demo data |
+| `npm run mobile:sync` / `mobile:android` | Android build pipeline |
 
----
+## Roadmap
 
-**Note**: This is currently a frontend-only implementation. Backend development is planned for future releases.
+Redis-backed socket scaling + token store · email verification & password reset · AI-assisted report triage · i18n (Hindi/Tamil/Telugu) · iOS build · INCOIS/IMD official feed ingestion.
+
+## License
+
+MIT — see [LICENSE](LICENSE).

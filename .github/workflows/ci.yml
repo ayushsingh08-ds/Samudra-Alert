@@ -1,0 +1,64 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  build-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install workspaces
+        run: npm ci
+
+      - name: Build shared
+        run: npm run build -w shared
+
+      - name: Typecheck client
+        run: npm run type-check -w client
+
+      - name: Lint client
+        run: npm run lint -w client
+
+      - name: Build server (tsc)
+        run: npm run build -w server
+
+      - name: Start MongoDB for tests
+        uses: supercharge/mongodb-github-action@1.10.0
+        with:
+          mongodb-version: 7
+
+      - name: Run server tests
+        run: npm test -w server
+        env:
+          NODE_ENV: test
+          JWT_ACCESS_SECRET: ci_access_secret_value
+          JWT_REFRESH_SECRET: ci_refresh_secret_value
+          MONGODB_URI_TEST: mongodb://localhost:27017/samudra-alert-test
+
+      - name: Install Playwright browser
+        run: npx playwright install --with-deps chromium
+
+      - name: Run Playwright end-to-end tests
+        run: npm run test:e2e
+        env:
+          MONGODB_URI: mongodb://localhost:27017/samudra-alert-e2e
+
+      - name: Build client
+        run: npm run build -w client
+
+      - name: Upload client dist
+        uses: actions/upload-artifact@v4
+        with:
+          name: client-dist
+          path: client/dist
+          retention-days: 5

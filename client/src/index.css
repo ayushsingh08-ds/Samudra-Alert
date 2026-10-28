@@ -1,0 +1,135 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap');
+
+@import "tailwindcss";
+
+@theme {
+  /* ── Nivara light design system ─────────────────────────── */
+  --color-nivara-bg-primary: #FAFAF8;
+  --color-nivara-bg-secondary: #FFFFFF;
+  --color-nivara-bg-card: #FFFFFF;
+  --color-nivara-bg-glass: #F4F3F0;
+
+  --color-nivara-accent-primary: #1A1A1A;
+  --color-nivara-accent-secondary: #333333;
+  --color-nivara-accent-teal: #0D9488;
+  --color-nivara-accent-cyan: #F04A23;
+
+  --color-nivara-text-primary: #1A1A1A;
+  --color-nivara-text-secondary: #52525B;
+  --color-nivara-text-muted: #9CA3AF;
+
+  --color-nivara-danger: #E03E1A;
+  --color-nivara-warning: #F59E0B;
+  --color-nivara-success: #22C55E;
+  --color-nivara-info: #3B82F6;
+
+  --color-nivara-border: #ECECEA;
+
+  --font-inter: "Inter", sans-serif;
+  --font-manrope: "Manrope", sans-serif;
+
+  --radius-3xl: 24px;
+  --radius-4xl: 28px;
+
+  --animate-fade-up: fadeUp 0.3s ease-out;
+  --animate-pin-pulse: pinPulse 2s infinite;
+
+  @keyframes fadeUp {
+    0% { opacity: 0; transform: translateY(10px); }
+    100% { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes pinPulse {
+    0% { transform: scale(1); opacity: 1; }
+    50% { transform: scale(1.2); opacity: 0.7; }
+    100% { transform: scale(1); opacity: 1; }
+  }
+}
+
+@layer base {
+  body {
+    @apply bg-nivara-bg-primary text-nivara-text-primary font-inter antialiased overflow-x-hidden;
+    margin: 0;
+    min-height: 100vh;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-manrope font-bold;
+  }
+}
+
+@layer components {
+  .glass-card {
+    @apply bg-nivara-bg-card border border-nivara-border rounded-2xl;
+    box-shadow: 0 1px 3px rgba(16, 16, 16, 0.04), 0 4px 16px rgba(16, 16, 16, 0.03);
+  }
+
+  .glass-panel {
+    @apply bg-nivara-bg-card border border-nivara-border;
+  }
+
+  .btn-primary {
+    @apply bg-nivara-accent-primary hover:bg-nivara-accent-secondary text-white font-semibold py-3 px-6 rounded-xl transition-all duration-200 active:scale-95;
+  }
+
+  .btn-secondary {
+    @apply bg-nivara-bg-card hover:bg-nivara-bg-glass text-nivara-text-primary font-semibold py-3 px-6 rounded-xl border border-nivara-border transition-all duration-200 active:scale-95;
+  }
+
+  .input-field {
+    @apply bg-nivara-bg-card border border-nivara-border rounded-xl px-4 py-3 text-nivara-text-primary placeholder-nivara-text-muted focus:outline-none focus:ring-2 focus:ring-nivara-accent-primary/15 focus:border-nivara-accent-primary/40 transition-all;
+  }
+
+  /* Severity pills — HIGH / MEDIUM / LOW */
+  .pill {
+    @apply inline-flex items-center rounded-full px-2.5 py-0.5 text-[10px] font-bold tracking-wide uppercase;
+  }
+  .pill-high {
+    @apply bg-nivara-danger/10 text-nivara-danger;
+  }
+  .pill-medium {
+    @apply bg-nivara-warning/15 text-nivara-warning;
+  }
+  .pill-low {
+    @apply bg-nivara-warning/10 text-nivara-warning;
+  }
+
+  /* Filter chips */
+  .chip {
+    @apply shrink-0 px-4 py-1.5 rounded-full text-xs font-semibold border border-nivara-border bg-nivara-bg-card text-nivara-text-secondary transition-all;
+  }
+  .chip-active {
+    @apply bg-nivara-accent-primary border-nivara-accent-primary text-white;
+  }
+
+  /* Brand wordmark — tracked uppercase */
+  .brand-mark {
+    @apply font-manrope font-extrabold tracking-[0.35em] uppercase;
+  }
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+}
+
+::-webkit-scrollbar-track {
+  @apply bg-nivara-bg-primary;
+}
+
+::-webkit-scrollbar-thumb {
+  @apply bg-nivara-border rounded-full hover:bg-nivara-text-muted transition-colors;
+}
+
+/* Leaflet Overrides — light map chrome */
+.leaflet-container {
+  background: #FAFAF8 !important;
+  font-family: "Inter", sans-serif;
+}
+
+.leaflet-popup-content-wrapper, .leaflet-popup-tip {
+  @apply !bg-nivara-bg-card !text-nivara-text-primary !border-nivara-border;
+}
+
+.leaflet-bar a {
+  @apply !bg-nivara-bg-card !text-nivara-text-primary !border-nivara-border;
+}

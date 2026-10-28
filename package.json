@@ -1,0 +1,30 @@
+{
+  "name": "samudra-alert-monorepo",
+  "version": "2.0.0",
+  "private": true,
+  "workspaces": [
+    "shared",
+    "server",
+    "client"
+  ],
+  "scripts": {
+    "dev": "concurrently -n server,client -c blue,cyan \"npm run dev -w server\" \"npm run dev -w client\"",
+    "dev:server": "npm run dev -w server",
+    "dev:client": "npm run dev -w client",
+    "build": "npm run build -w shared && npm run build -w server && npm run build -w client",
+    "type-check": "npm run build -w shared && npm run type-check -w client && npm run build:check -w server",
+    "lint": "npm run lint -w client",
+    "test": "npm run test -w server",
+    "test:e2e": "playwright test",
+    "seed": "npm run seed -w server",
+    "mobile:sync": "npm run build -w client && npx cap sync android --prefix client",
+    "mobile:android": "npm run mobile:sync && npx cap open android --prefix client"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.59.0",
+    "concurrently": "^9.1.2"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
